@@ -1,17 +1,17 @@
-package com.splot.service;
+package com.splot.bot.service;
 
-import com.splot.config.BotConfig;
-import lombok.extern.slf4j.Slf4j;
+import com.splot.bot.config.BotConfig;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
-@Slf4j
+@Log4j2
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
-    final BotConfig config;
+    private final BotConfig config;
 
     public TelegramBot(BotConfig config) {
         this.config = config;
