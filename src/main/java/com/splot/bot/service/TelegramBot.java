@@ -2,6 +2,7 @@ package com.splot.bot.service;
 
 import com.splot.bot.config.BotConfig;
 import com.splot.bot.model.User;
+import com.vdurmont.emoji.EmojiParser;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -11,6 +12,8 @@ import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.ArrayList;
@@ -69,7 +72,8 @@ public class TelegramBot extends TelegramLongPollingBot {
             long chatId = update.getMessage().getChatId();
 
             switch (messageText) {
-                case "/start":
+                case "/start" :
+                case "register":
                     registerUser(update.getMessage());
                     startCommandReceived(chatId,
                             update.getMessage().getChat().getFirstName());
@@ -78,9 +82,11 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendMessage(chatId, HELP_TEXT);
                     break;
                 case "/mydata":
+                case "check my data":
                     sendMessage(chatId, userService.findUserById(chatId).toString());
                     break;
                 case "/deletedata":
+                case "delete my data":
                     sendMessage(chatId, "Your data successful deleted :)");
                     break;
                 case "/settings":
@@ -99,7 +105,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void startCommandReceived(long chatId, String name) {
-        String answer = "Hi, " + name + ", nice to meet you!";
+        String answer = EmojiParser.parseToUnicode("Hi, " + name
+                + ", nice to meet you!" + ":pig:");
         log.info("Replied to user " + name);
         sendMessage(chatId, answer);
     }
@@ -108,6 +115,26 @@ public class TelegramBot extends TelegramLongPollingBot {
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
+
+        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
+        List<KeyboardRow> keyboardRows = new ArrayList<>();
+        KeyboardRow row = new KeyboardRow();
+
+        row.add("weather");
+        row.add("get random joke");
+        keyboardRows.add(row);
+
+        row = new KeyboardRow();
+
+        row.add("register");
+        row.add("check my data");
+        row.add("delete my data");
+        keyboardRows.add(row);
+
+        keyboardMarkup.setKeyboard(keyboardRows);
+
+        message.setReplyMarkup(keyboardMarkup);
+
         try {
             execute(message);
         } catch (TelegramApiException e) {
