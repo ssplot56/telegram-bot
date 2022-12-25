@@ -1,4 +1,4 @@
-package com.splot.config;
+package com.splot.bot.config;
 
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
