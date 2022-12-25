@@ -1,11 +1,13 @@
 package com.splot.bot.service;
 
 import com.splot.bot.config.BotConfig;
+import com.splot.bot.model.User;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
@@ -24,9 +26,12 @@ public class TelegramBot extends TelegramLongPollingBot {
             Type /deletedata to delete collected data about you
             Type /settings to set own preferences
             """;
+
+    private final UserService userService;
     private final BotConfig config;
 
-    public TelegramBot(BotConfig config) {
+    public TelegramBot(UserService userService, BotConfig config) {
+        this.userService = userService;
         this.config = config;
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand("/start",
@@ -65,6 +70,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
                 case "/start":
+                    registerUser(update.getMessage());
                     startCommandReceived(chatId,
                             update.getMessage().getChat().getFirstName());
                     break;
@@ -72,7 +78,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     sendMessage(chatId, HELP_TEXT);
                     break;
                 case "/mydata":
-                    sendMessage(chatId, "Your chatId: " + chatId + ";");
+                    sendMessage(chatId, userService.findUserById(chatId).toString());
                     break;
                 case "/deletedata":
                     sendMessage(chatId, "Your data successful deleted :)");
@@ -82,6 +88,13 @@ public class TelegramBot extends TelegramLongPollingBot {
                 default: sendMessage(chatId,
                         "Sorry, command was not recognized");
             }
+        }
+    }
+
+    private void registerUser(Message message) {
+        if (userService.checkIfUserExist(message)) {
+            User user = userService.registerNewUser(message);
+            log.info("User saved " + user);
         }
     }
 
