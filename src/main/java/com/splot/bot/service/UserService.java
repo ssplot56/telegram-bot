@@ -9,4 +9,6 @@ public interface UserService {
     Boolean checkIfUserExist(Message message);
 
     User findUserById(Long id);
+
+    void deleteUser(Long id);
 }

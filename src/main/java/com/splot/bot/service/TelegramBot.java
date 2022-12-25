@@ -3,6 +3,7 @@ package com.splot.bot.service;
 import com.splot.bot.config.BotConfig;
 import com.splot.bot.model.User;
 import com.vdurmont.emoji.EmojiParser;
+import lombok.SneakyThrows;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
@@ -27,7 +28,6 @@ public class TelegramBot extends TelegramLongPollingBot {
             Type /start to receive greetings
             Type /mydata to receive collected information about you
             Type /deletedata to delete collected data about you
-            Type /settings to set own preferences
             """;
 
     private final UserService userService;
@@ -45,8 +45,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 "delete your data"));
         listOfCommands.add(new BotCommand("/help",
                 "list of commands"));
-        listOfCommands.add(new BotCommand("/settings",
-                "set your preferences"));
         try {
             this.execute(new SetMyCommands(listOfCommands,
                     new BotCommandScopeDefault(), null));
@@ -65,35 +63,43 @@ public class TelegramBot extends TelegramLongPollingBot {
         return config.getToken();
     }
 
+    @SneakyThrows
     @Override
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
-            String messageText = update.getMessage().getText();
-            long chatId = update.getMessage().getChatId();
+            Message message = update.getMessage();
+            String messageText = message.getText();
+            long chatId = message.getChatId();
 
             switch (messageText) {
-                case "/start" :
-                case "register":
-                    registerUser(update.getMessage());
-                    startCommandReceived(chatId,
-                            update.getMessage().getChat().getFirstName());
-                    break;
-                case "/help":
-                    sendMessage(chatId, HELP_TEXT);
-                    break;
-                case "/mydata":
-                case "check my data":
-                    sendMessage(chatId, userService.findUserById(chatId).toString());
-                    break;
-                case "/deletedata":
-                case "delete my data":
-                    sendMessage(chatId, "Your data successful deleted :)");
-                    break;
-                case "/settings":
-                    break;
-                default: sendMessage(chatId,
+                case "/start" -> startCommandReceived(message);
+                case "register" -> registerUser(message);
+                case "/help" -> sendMessage(chatId, HELP_TEXT);
+                case "/mydata", "check my data" -> checkData(message);
+                case "/deletedata", "delete my data" -> deleteData(message);
+                default -> sendMessage(chatId,
                         "Sorry, command was not recognized");
             }
+        }
+    }
+
+    private void deleteData(Message message) {
+        Long chatId = message.getChatId();
+        if (userService.checkIfUserExist(message)) {
+            sendMessage(chatId, "Bot doesn't have any information about you");
+        } else {
+            userService.deleteUser(chatId);
+            sendMessage(chatId, "Your data successful deleted :)");
+            log.info("User with chatId: " + chatId + " was deleted");
+        }
+    }
+
+    private void checkData(Message message) {
+        Long chatId = message.getChatId();
+        if (userService.checkIfUserExist(message)) {
+            sendMessage(chatId, "You not registered, register first");
+        } else {
+            sendMessage(chatId,userService.findUserById(chatId).toString());
         }
     }
 
@@ -101,14 +107,26 @@ public class TelegramBot extends TelegramLongPollingBot {
         if (userService.checkIfUserExist(message)) {
             User user = userService.registerNewUser(message);
             log.info("User saved " + user);
+            sendMessage(message.getChatId(), "Successfully registered");
+        } else {
+            sendMessage(message.getChatId(), "You already registered :)");
         }
     }
 
-    private void startCommandReceived(long chatId, String name) {
+    private void startCommandReceived(Message message) throws InterruptedException {
+        String name = message.getChat().getFirstName();
+        long chatId = message.getChatId();
+
         String answer = EmojiParser.parseToUnicode("Hi, " + name
                 + ", nice to meet you!" + ":pig:");
         log.info("Replied to user " + name);
         sendMessage(chatId, answer);
+
+        if (userService.checkIfUserExist(message)) {
+            Thread.sleep(1000);
+            sendMessage(chatId, "You can register in bot, just type 'register'");
+        }
+
     }
 
     private void sendMessage(long chatId, String textToSend) {
