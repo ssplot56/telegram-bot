@@ -1,42 +1,16 @@
 package com.splot.bot.model;
 
+import lombok.Data;
+
 import java.time.ZonedDateTime;
 
+@Data
 public class Weather {
+    private String locationName;
+    private ZonedDateTime date;
     private Double currentTemp;
     private Double feelsLikeTemp;
     private Double maxTemp;
     private Double minTemp;
-
-    public Double getCurrentTemp() {
-        return currentTemp;
-    }
-
-    public void setCurrentTemp(Double currentTemp) {
-        this.currentTemp = currentTemp;
-    }
-
-    public Double getFeelsLikeTemp() {
-        return feelsLikeTemp;
-    }
-
-    public void setFeelsLikeTemp(Double feelsLikeTemp) {
-        this.feelsLikeTemp = feelsLikeTemp;
-    }
-
-    public Double getMaxTemp() {
-        return maxTemp;
-    }
-
-    public void setMaxTemp(Double maxTemp) {
-        this.maxTemp = maxTemp;
-    }
-
-    public Double getMinTemp() {
-        return minTemp;
-    }
-
-    public void setMinTemp(Double minTemp) {
-        this.minTemp = minTemp;
-    }
+    private String description;
 }

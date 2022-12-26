@@ -8,7 +8,7 @@ public interface UserService {
 
     User updateUser(User user);
 
-    Boolean checkIfUserExist(Message message);
+    Boolean checkIfUserExist(Long id);
 
     User findUserById(Long id);
 

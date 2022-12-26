@@ -28,7 +28,7 @@ public class UserServiceImpl implements UserService {
         user.setLastName(chat.getLastName());
         user.setUserName(chat.getUserName());
         user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
-        user.setCity("Kyiv");
+        user.setCity("KYIV");
         return repository.save(user);
     }
 
@@ -38,8 +38,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Boolean checkIfUserExist(Message message) {
-        return repository.findById(message.getChatId()).isEmpty();
+    public Boolean checkIfUserExist(Long id) {
+        return repository.findById(id).isEmpty();
     }
 
     @Override

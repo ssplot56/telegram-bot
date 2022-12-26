@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
-import org.telegram.telegrambots.meta.api.methods.updates.GetUpdates;
 import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
@@ -19,6 +18,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,7 +26,7 @@ import java.util.List;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     private static final String HELP_TEXT = """
-            This bot can do nothing for now :(\s
+            This bot can do nothing for now :\\(
             Type /start to receive greetings
             Type /mydata to receive collected information about you
             Type /deletedata to delete collected data about you
@@ -78,23 +78,23 @@ public class TelegramBot extends TelegramLongPollingBot {
             long chatId = message.getChatId();
 
             if (tryToChangeCity) {
-                if (isCorrect(messageText)) {
-                    changeUserCity(update);
+                if (isCorrectCity(messageText)) {
+                    changeUserCity(message);
                     tryToChangeCity = false;
-                    return;
                 } else {
-                    sendMessage(message.getChatId(), "Uncorrect format, "
+                    sendMessage(message.getChatId(), "Uncorrect city format, "
                             + "do not use digits and symbols! Try again");
                 }
+                return;
             }
 
             switch (messageText) {
                 case "/start" -> startCommandReceived(message);
                 case "register" -> registerUser(message);
                 case "/help" -> sendMessage(chatId, HELP_TEXT);
-                case "/mydata", "check my data" -> checkData(message);
-                case "/deletedata", "delete my data" -> deleteData(message);
-                case "current weather" -> showWeather(chatId);
+                case "/mydata", "check my data" -> checkData(chatId);
+                case "/deletedata", "delete my data" -> deleteData(chatId);
+                case "current weather" -> showWeather(update);
                 case "weather forecast" -> showForecast(chatId);
                 case "change city" -> {
                     tryToChangeCity = true;
@@ -107,43 +107,64 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     @SneakyThrows
-    private void changeUserCity(Update update) {
-        Message message = update.getMessage();
+    private void changeUserCity(Message message) {
         User user = userService.getUserById(message.getChatId());
         String messageText = message.getText();
-        user.setCity(messageText);
-        userService.updateUser(user);
-        sendMessage(user.getId(), "City was updated, current city - "
+        user.setCity(messageText.toUpperCase());
+        user = userService.updateUser(user);
+        log.info("User - " + user + " was changed city to - " + user.getCity());
+        sendMessage(user.getId(), "Data was updated, current city - "
                 + user.getCity());
     }
 
-    private boolean isCorrect(String messageText) {
-        return messageText.matches("[a-zA-Z]+");
+    @SneakyThrows
+    private void showWeather(Update update) {
+        Long chatId = update.getMessage().getChatId();
+        setCityforService(chatId);
+
+        Weather weather = weatherService.timelineRequestHttpClient().get(0);
+        String weatherString = "Currently in <b>" +
+                weather.getLocationName() + "</b>:\n" +
+                "Temperature: " + weather.getCurrentTemp() + "℃\n" +
+                "Feels like: " + weather.getFeelsLikeTemp() + "℃\n" +
+                "Max temperature: " + weather.getMaxTemp() + "℃\n" +
+                "Min temperature: " + weather.getMinTemp() + "℃\n" +
+                "Description: " + weather.getDescription();
+        sendMessage(chatId, weatherString);
     }
 
     @SneakyThrows
     private void showForecast(long chatId) {
+        setCityforService(chatId);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EE, d LLLL");
+
         List<Weather> weatherList = weatherService.timelineRequestHttpClient();
+        StringBuilder forecastString = new StringBuilder("Forecast in <b>"
+                + weatherList.get(0).getLocationName() + ":</b>\n");
 
-
+        for (Weather weather : weatherList) {
+            forecastString.append("<b>").append(weather.getDate().format(formatter)).append(":</b>")
+                    .append(" from ").append(weather.getMinTemp()).append("℃")
+                    .append(" to ").append(weather.getMaxTemp()).append("℃")
+                    .append("\n\n");
+        }
+        sendMessage(chatId, forecastString.toString());
     }
 
-    @SneakyThrows
-    private void showWeather(Long chatId) {
-        Weather weather = weatherService.timelineRequestHttpClient().get(0);
+    private void setCityforService(long chatId) throws InterruptedException {
+
+        if (userService.checkIfUserExist(chatId)) {
+            sendRegisterFirstMessage(chatId);
+            return;
+        }
+
         User user = userService.getUserById(chatId);
         String city = user.getCity();
-
-        sendMessage(chatId, "Currently in " + city +":\n"
-                + "Temperature - " + weather.getCurrentTemp() + "\n"
-                + "Feels like - " + weather.getFeelsLikeTemp() + "\n"
-                + "Max temperature - " + weather.getMaxTemp() + "\n"
-                + "Min temperature - " + weather.getMinTemp());
+        weatherService.setCity(city);
     }
 
-    private void deleteData(Message message) {
-        Long chatId = message.getChatId();
-        if (userService.checkIfUserExist(message)) {
+    private void deleteData(long chatId) {
+        if (userService.checkIfUserExist(chatId)) {
             sendMessage(chatId, "Bot doesn't have any information about you");
         } else {
             userService.deleteUser(chatId);
@@ -152,24 +173,16 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    private void checkData(Message message) {
-        Long chatId = message.getChatId();
-        if (userService.checkIfUserExist(message)) {
-            sendMessage(chatId, "You not registered, register first");
-        } else {
-            sendMessage(chatId,userService.findUserById(chatId).toString());
-        }
-    }
-
     private void registerUser(Message message) {
-        if (userService.checkIfUserExist(message)) {
+        Long chatId = message.getChatId();
+        if (userService.checkIfUserExist(chatId)) {
             User user = userService.saveUser(message);
-            sendMessage(message.getChatId(), "You city by default - Kyiv, "
+            sendMessage(chatId, "You city by default - Kyiv, "
                     + "to change city type 'change city'");
             log.info("User saved " + user);
-            sendMessage(message.getChatId(), "Successfully registered");
+            sendMessage(chatId, "Successfully registered");
         } else {
-            sendMessage(message.getChatId(), "You already registered :)");
+            sendMessage(chatId, "You already registered");
         }
     }
 
@@ -182,18 +195,18 @@ public class TelegramBot extends TelegramLongPollingBot {
         log.info("Replied to user " + name);
         sendMessage(chatId, answer);
 
-        if (userService.checkIfUserExist(message)) {
-            Thread.sleep(1500);
-            sendMessage(chatId, "You can register in bot, just type 'register'");
+        if (userService.checkIfUserExist(chatId)) {
+            sendRegisterFirstMessage(chatId);
         }
 
     }
 
     private void sendMessage(long chatId, String textToSend) {
+
         SendMessage message = new SendMessage();
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
-
+        message.setParseMode("HTML");
         ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
         List<KeyboardRow> keyboardRows = new ArrayList<>();
         KeyboardRow row = new KeyboardRow();
@@ -219,5 +232,24 @@ public class TelegramBot extends TelegramLongPollingBot {
         } catch (TelegramApiException e) {
             log.error("Error occurred: " + e.getMessage());
         }
+    }
+
+    private void checkData(long chatId) {
+        if (userService.checkIfUserExist(chatId)) {
+            sendMessage(chatId, "You not registered, register first");
+        } else {
+            sendMessage(chatId,userService.findUserById(chatId).toString());
+        }
+    }
+
+    private boolean isCorrectCity(String messageText) {
+        return messageText.matches("[a-zA-Z]+");
+    }
+
+    private void sendRegisterFirstMessage(long chatId) throws InterruptedException {
+        sendMessage(chatId, "To check the weather, register first");
+        Thread.sleep(1000);
+        sendMessage(chatId,
+                "You can register in bot, just type 'register'");
     }
 }

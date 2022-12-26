@@ -25,16 +25,17 @@ import java.util.List;
 public class WeatherService {
     private static final String apiEndPoint="https://weather.visualcrossing.com"
             + "/VisualCrossingWebServices/rest/services/timeline/";
-    private static final String LOCATION="Kyiv";
+    private String city;
     private static final String startDate=null; //optional (omit for forecast)
     private static final String endDate=null; //optional (requires a startDate if present)
     private static final String unitGroup="metric"; //us,metric,uk
     private static final String apiKey="NCDHRXZGEX6NMRMBBKTWVN3KE";
 
+
     public List<Weather> timelineRequestHttpClient() throws Exception {
 
         StringBuilder requestBuilder=new StringBuilder(apiEndPoint);
-        requestBuilder.append(URLEncoder.encode(LOCATION, StandardCharsets.UTF_8));
+        requestBuilder.append(URLEncoder.encode(city, StandardCharsets.UTF_8));
 
         if (startDate!=null && !startDate.isEmpty()) {
             requestBuilder.append("/").append(startDate);
@@ -87,18 +88,20 @@ public class WeatherService {
 
         ZoneId zoneId=ZoneId.of(timelineResponse.getString("timezone"));
 
-        System.out.printf("Weather data for: %s%n", timelineResponse.getString("resolvedAddress"));
+        String location = timelineResponse.getString("resolvedAddress");
 
-        JSONArray values=timelineResponse.getJSONArray("days");
+        JSONArray values = timelineResponse.getJSONArray("days");
 
-        System.out.printf("Date\tMaxTemp\tMinTemp\tPrecip\tSource%n");
         List<Weather> weatherList = new ArrayList<>();
-        for (int i = 0; i < values.length(); i++) {
+        for (int i = 0; i < 7; i++) {
             JSONObject dayValue = values.getJSONObject(i);
 
             ZonedDateTime datetime=ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(dayValue.getLong("datetimeEpoch")), zoneId);
             Weather weather = new Weather();
+            weather.setDate(datetime);
+            weather.setLocationName(location);
+            weather.setDescription(dayValue.getString("description"));
             weather.setCurrentTemp(dayValue.getDouble("temp"));
             weather.setFeelsLikeTemp(dayValue.getDouble("feelslike"));
             weather.setMaxTemp(dayValue.getDouble("tempmax"));
@@ -106,5 +109,9 @@ public class WeatherService {
             weatherList.add(weather);
         }
         return weatherList;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
     }
 }
