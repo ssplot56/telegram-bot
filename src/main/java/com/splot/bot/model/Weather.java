@@ -13,4 +13,6 @@ public class Weather {
     private Double maxTemp;
     private Double minTemp;
     private String description;
+    private String icon;
+    private String condition;
 }
