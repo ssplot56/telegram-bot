@@ -1,6 +1,14 @@
 package com.splot.bot.service;
 
 import com.splot.bot.model.Weather;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.extern.log4j.Log4j2;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -13,90 +21,63 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
 @Service
+@Log4j2
 public class WeatherService {
-    private static final String apiEndPoint="https://weather.visualcrossing.com"
+    private static final String apiEndPoint = "https://weather.visualcrossing.com"
             + "/VisualCrossingWebServices/rest/services/timeline/";
-    private String city;
-    private static final String startDate=null; //optional (omit for forecast)
-    private static final String endDate=null; //optional (requires a startDate if present)
-    private static final String unitGroup="metric"; //us,metric,uk
-    private static final String apiKey="NCDHRXZGEX6NMRMBBKTWVN3KE";
+    private static final String unitGroup = "metric";
+    private static final String apiKey = "NCDHRXZGEX6NMRMBBKTWVN3KE";
 
+    public WeatherService() {
+    }
 
-    public List<Weather> timelineRequestHttpClient() throws Exception {
+    public List<Weather> timelineRequestHttpClient(String city) throws Exception {
 
-        StringBuilder requestBuilder=new StringBuilder(apiEndPoint);
-        requestBuilder.append(URLEncoder.encode(city, StandardCharsets.UTF_8));
-
-        if (startDate!=null && !startDate.isEmpty()) {
-            requestBuilder.append("/").append(startDate);
-            if (endDate!=null && !endDate.isEmpty()) {
-                requestBuilder.append("/").append(endDate);
-            }
-        }
-
-        URIBuilder builder = new URIBuilder(requestBuilder.toString());
+        URIBuilder builder = new URIBuilder(apiEndPoint
+                + URLEncoder.encode(city, StandardCharsets.UTF_8));
 
         builder.setParameter("unitGroup", unitGroup)
                 .setParameter("key", apiKey);
 
-
-
         HttpGet get = new HttpGet(builder.build());
-
         CloseableHttpClient httpclient = HttpClients.createDefault();
-
         CloseableHttpResponse response = httpclient.execute(get);
 
         String rawResult = null;
         try {
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                System.out.printf("Bad response status code:%d%n", response.getStatusLine().getStatusCode());
+                log.error("bad response status code " + response.getStatusLine());
                 return null;
             }
-
             HttpEntity entity = response.getEntity();
             if (entity != null) {
-                rawResult= EntityUtils.toString(entity, StandardCharsets.UTF_8);
+                rawResult = EntityUtils.toString(entity, StandardCharsets.UTF_8);
             }
-
-
         } finally {
             response.close();
         }
-
         return parseTimelineJson(rawResult);
 
     }
+
     private List<Weather> parseTimelineJson(String rawResult) {
 
         if (rawResult == null || rawResult.isEmpty()) {
-            System.out.printf("No raw data%n");
+            log.error("No raw data");
             return null;
         }
 
         JSONObject timelineResponse = new JSONObject(rawResult);
-
-        ZoneId zoneId=ZoneId.of(timelineResponse.getString("timezone"));
-
+        ZoneId zoneId = ZoneId.of(timelineResponse.getString("timezone"));
         String location = timelineResponse.getString("resolvedAddress");
-
         JSONArray values = timelineResponse.getJSONArray("days");
 
         List<Weather> weatherList = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
             JSONObject dayValue = values.getJSONObject(i);
 
-            ZonedDateTime datetime=ZonedDateTime.ofInstant(
+            ZonedDateTime datetime = ZonedDateTime.ofInstant(
                     Instant.ofEpochSecond(dayValue.getLong("datetimeEpoch")), zoneId);
             Weather weather = new Weather();
             weather.setDate(datetime);
@@ -106,12 +87,10 @@ public class WeatherService {
             weather.setFeelsLikeTemp(dayValue.getDouble("feelslike"));
             weather.setMaxTemp(dayValue.getDouble("tempmax"));
             weather.setMinTemp(dayValue.getDouble("tempmin"));
+            weather.setIcon(dayValue.getString("icon"));
+            weather.setCondition(dayValue.getString("conditions"));
             weatherList.add(weather);
         }
         return weatherList;
-    }
-
-    public void setCity(String city) {
-        this.city = city;
     }
 }

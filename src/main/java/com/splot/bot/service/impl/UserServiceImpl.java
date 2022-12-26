@@ -3,11 +3,10 @@ package com.splot.bot.service.impl;
 import com.splot.bot.model.User;
 import com.splot.bot.repository.UserRepository;
 import com.splot.bot.service.UserService;
+import java.sql.Timestamp;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
-
-import java.sql.Timestamp;
 
 @Service
 public class UserServiceImpl implements UserService {
