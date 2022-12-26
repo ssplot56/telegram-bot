@@ -4,11 +4,15 @@ import com.splot.bot.model.User;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
 public interface UserService {
-    User registerNewUser(Message message);
+    User saveUser(Message message);
 
-    Boolean checkIfUserExist(Message message);
+    User updateUser(User user);
+
+    Boolean checkIfUserExist(Long id);
 
     User findUserById(Long id);
 
     void deleteUser(Long id);
+
+    User getUserById(Long id);
 }

@@ -18,7 +18,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User registerNewUser(Message message) {
+    public User saveUser(Message message) {
         long chatId = message.getChatId();
         Chat chat = message.getChat();
 
@@ -28,21 +28,32 @@ public class UserServiceImpl implements UserService {
         user.setLastName(chat.getLastName());
         user.setUserName(chat.getUserName());
         user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
+        user.setCity("KYIV");
         return repository.save(user);
     }
 
     @Override
-    public Boolean checkIfUserExist(Message message) {
-        return repository.findById(message.getChatId()).isEmpty();
+    public User updateUser(User user) {
+        return repository.save(user);
+    }
+
+    @Override
+    public Boolean checkIfUserExist(Long id) {
+        return repository.findById(id).isEmpty();
     }
 
     @Override
     public User findUserById(Long id) {
-        return repository.findById(id).get();
+        return repository.findById(id).orElseThrow();
     }
 
     @Override
     public void deleteUser(Long id) {
         repository.deleteById(id);
+    }
+
+    @Override
+    public User getUserById(Long id) {
+        return repository.findById(id).orElseThrow();
     }
 }
