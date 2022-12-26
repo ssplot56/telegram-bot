@@ -6,15 +6,15 @@ import org.springframework.stereotype.Service;
 @Service
 public class SmileParser {
     public String parseSmile(String condition) {
-        return switch (condition) {
-            case "snow" -> EmojiParser.parseToUnicode(":cloud_snow:");
-            case "rain" -> EmojiParser.parseToUnicode(":cloud_rain:");
-            case "fog" -> EmojiParser.parseToUnicode(":fog:");
-            case "wind" -> EmojiParser.parseToUnicode(":wind_face:");
-            case "cloudy" -> EmojiParser.parseToUnicode(":cloud:");
-            case "partly-cloudy-day" -> EmojiParser.parseToUnicode(":partly_sunny:");
-            case "partly-cloudy-night" -> EmojiParser.parseToUnicode(":full_moon_with_face:");
-            default -> EmojiParser.parseToUnicode(":sunny:");
-        };
+        return EmojiParser.parseToUnicode(switch (condition) {
+            case "snow" -> ":cloud_snow:";
+            case "rain" -> ":cloud_rain:";
+            case "fog" -> ":fog:";
+            case "wind" -> ":wind_face:";
+            case "cloudy" -> ":cloud:";
+            case "partly-cloudy-day" -> ":partly_sunny:";
+            case "partly-cloudy-night" -> ":full_moon_with_face:";
+            default -> ":sunny:";
+        });
     }
 }

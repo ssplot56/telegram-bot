@@ -1,8 +1,7 @@
 package com.splot.bot.model;
 
-import lombok.Data;
-
 import java.time.ZonedDateTime;
+import lombok.Data;
 
 @Data
 public class Weather {
