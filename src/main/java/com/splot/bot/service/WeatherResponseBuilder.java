@@ -19,41 +19,37 @@ public class WeatherResponseBuilder {
 
     @SneakyThrows
     public String buildForecastMessage(String city) {
-        if (weatherService.timelineRequestHttpClient(city) != null) {
-            List<Weather> weatherList = weatherService.timelineRequestHttpClient(city);
-            StringBuilder forecastString = new StringBuilder("Forecast in <b>"
-                    + weatherList.get(0).getLocationName() + ":</b>\n\n");
+        List<Weather> weatherList = weatherService.timelineRequestHttpClient(city);
+        StringBuilder forecastString = new StringBuilder("Forecast in <b>"
+                + weatherList.get(0).getLocationName() + ":</b>\n\n");
 
-            for (Weather weather : weatherList) {
-                forecastString.append("<b>").append(weather.getDate().format(formatter)).append(":</b>")
-                        .append(" from ").append(weather.getMinTemp()).append("℃")
-                        .append(" to ").append(weather.getMaxTemp()).append("℃ ")
-                        .append(smileParser.parseSmile(weather.getIcon()))
-                        .append("\n\n");
-            }
-            return forecastString.toString();
-        } else {
-            return "Sorry, no city with the name " + city + " was found. "
-                    + "Change the city by command /change";
+        for (Weather weather : weatherList) {
+            forecastString.append("<b>").append(weather.getDate().format(formatter)).append(":</b>")
+                    .append(" from ").append(weather.getMinTemp()).append("℃")
+                    .append(" to ").append(weather.getMaxTemp()).append("℃ ")
+                    .append(smileParser.parseSmile(weather.getIcon()))
+                    .append("\n\n");
         }
+        return forecastString.toString();
     }
 
     @SneakyThrows
     public String buildTodayWeatherMessage(String city) {
-        if (weatherService.timelineRequestHttpClient(city) != null) {
-            Weather weather = weatherService.timelineRequestHttpClient(city).get(0);
-            return "Currently in <b>" +
-                    weather.getLocationName() + "</b>:\n\n" +
-                    "<b>•Conditions</b>: " + weather.getCondition() + " " +
-                    smileParser.parseSmile(weather.getIcon()) + "\n" +
-                    "<b>•Temperature</b>: " + weather.getCurrentTemp() + "℃\n" +
-                    "<b>•Feels like</b>: " + weather.getFeelsLikeTemp() + "℃\n" +
-                    "<b>•Max temperature</b>: " + weather.getMaxTemp() + "℃\n" +
-                    "<b>•Min temperature</b>: " + weather.getMinTemp() + "℃\n" +
-                    "<b>•Description</b>: " + weather.getDescription();
-        } else {
-            return "Sorry, no city with the name " + city + " was found. "
-                    + "Change the city by command /change";
-        }
+        Weather weather = weatherService.timelineRequestHttpClient(city).get(0);
+        return "Currently in <b>" +
+                weather.getLocationName() + "</b>:\n\n" +
+                "<b>•Conditions</b>: " + weather.getCondition() + " " +
+                smileParser.parseSmile(weather.getIcon()) + "\n" +
+                "<b>•Temperature</b>: " + weather.getCurrentTemp() + "℃\n" +
+                "<b>•Feels like</b>: " + weather.getFeelsLikeTemp() + "℃\n" +
+                "<b>•Max temperature</b>: " + weather.getMaxTemp() + "℃\n" +
+                "<b>•Min temperature</b>: " + weather.getMinTemp() + "℃\n" +
+                "<b>•Description</b>: " + weather.getDescription();
+
+    }
+
+    @SneakyThrows
+    public boolean isAvailableCity(String city) {
+        return weatherService.timelineRequestHttpClient(city) != null;
     }
 }

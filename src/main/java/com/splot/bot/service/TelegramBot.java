@@ -22,7 +22,6 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     private static final String HELP_TEXT = """
-            This bot can do nothing for now :\\(
             Type /start to receive greetings
             Type /weather to receive weather in your city
             Type /forecast to receive 7-day forecast
@@ -76,11 +75,13 @@ public class TelegramBot extends TelegramLongPollingBot {
             long chatId = message.getChatId();
 
             if (tryToChangeCity) {
-                if (isCorrectCity(messageText)) {
+                if (isCorrectCity(messageText)
+                        && weatherResponseBuilder.isAvailableCity(messageText)) {
                     changeUserCity(message);
                     tryToChangeCity = false;
                 } else {
-                    sendMessage(message.getChatId(), "Incorrect city format, "
+                    sendMessage(message.getChatId(), "Incorrect city format "
+                            + "or non-existent city, "
                             + "do not use digits and symbols! Try again");
                 }
                 return;
