@@ -21,12 +21,11 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 @Log4j2
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
-    private static final String HELP_TEXT = """
-            Type /start to receive greetings
-            Type /weather to receive weather in your city
-            Type /forecast to receive 7-day forecast
-            Type /change to change your current city
-            """;
+    private static final String HELP_TEXT =
+            "Type /start to receive greetings"
+            + "Type /weather to receive weather in your city"
+            + "Type /forecast to receive 7-day forecast"
+            + "Type /change to change your current city";
 
     private final UserService userService;
     private final BotConfig config;
@@ -88,20 +87,29 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
 
             switch (messageText) {
-                case "/start" -> {
+                case "/start":
                     startCommandReceived(message);
                     if (userService.checkIfUserExist(chatId)) {
                         registerUser(message);
                     }
-                }
-                case "/help" -> sendMessage(chatId, HELP_TEXT);
-                case "Current weather", "/weather" -> showWeather(chatId);
-                case "Weather forecast", "/forecast" -> showForecast(chatId);
-                case "Change city", "/change" -> {
+                    break;
+                case "/help":
+                    sendMessage(chatId, HELP_TEXT);
+                    break;
+                case "Current weather":
+                case "/weather":
+                    showWeather(chatId);
+                    break;
+                case "Weather forecast":
+                case "/forecast":
+                    showForecast(chatId);
+                    break;
+                case "Change city":
+                case "/change":
                     tryToChangeCity = true;
                     sendMessage(message.getChatId(), "Type your city:\n");
-                }
-                default -> sendMessage(chatId,
+                    break;
+                default: sendMessage(chatId,
                         "Sorry, command was not recognized");
             }
         }
