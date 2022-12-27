@@ -10,9 +10,5 @@ public interface UserService {
 
     Boolean checkIfUserExist(Long id);
 
-    User findUserById(Long id);
-
-    void deleteUser(Long id);
-
     User getUserById(Long id);
 }
