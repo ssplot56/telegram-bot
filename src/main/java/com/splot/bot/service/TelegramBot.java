@@ -120,7 +120,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         String messageText = message.getText();
         user.setCity(messageText.toUpperCase());
         user = userService.updateUser(user);
-        log.info("User - " + user + " was changed city to - " + user.getCity());
+        log.info("User - " + user.getId() + " was changed city to - " + user.getCity());
         sendMessage(user.getId(), "Data was updated, current city - "
                 + user.getCity());
     }
@@ -185,6 +185,6 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private boolean isCorrectCity(String messageText) {
-        return messageText.matches("^[a-zA-Z]+(?:[\\s-][a-zA-Z]+)*$");
+        return messageText.matches("^[a-zA-Zа-яА-ЯіїІЇ]+(?:[\\s-][a-zA-Z]+)*$");
     }
 }
