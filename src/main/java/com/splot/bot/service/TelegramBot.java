@@ -30,13 +30,14 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final UserService userService;
     private final BotConfig config;
     private final WeatherResponseBuilder weatherResponseBuilder;
-    private boolean tryToChangeCity = false;
+    private final List<Long> usersChangeCity;
 
     public TelegramBot(UserService userService, BotConfig config,
-                       WeatherResponseBuilder weatherResponseBuilder) {
+                       WeatherResponseBuilder weatherResponseBuilder, List<Long> usersChangeCity) {
         this.userService = userService;
         this.config = config;
         this.weatherResponseBuilder = weatherResponseBuilder;
+        this.usersChangeCity = usersChangeCity;
         List<BotCommand> listOfCommands = new ArrayList<>();
         listOfCommands.add(new BotCommand("/start",
                 "welcome message"));
@@ -73,13 +74,13 @@ public class TelegramBot extends TelegramLongPollingBot {
             String messageText = message.getText();
             long chatId = message.getChatId();
 
-            if (tryToChangeCity) {
+            if (usersChangeCity.contains(chatId)) {
                 if (isCorrectCity(messageText)
                         && weatherResponseBuilder.isAvailableCity(messageText)) {
                     changeUserCity(message);
-                    tryToChangeCity = false;
+                    usersChangeCity.remove(chatId);
                 } else {
-                    sendMessage(message.getChatId(), "Incorrect city format "
+                    sendMessage(chatId, "Incorrect city format "
                             + "or non-existent city, "
                             + "do not use digits and symbols! Try again");
                 }
@@ -106,7 +107,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                     break;
                 case "Change city":
                 case "/change":
-                    tryToChangeCity = true;
+                    usersChangeCity.add(chatId);
                     sendMessage(message.getChatId(), "Type your city:\n");
                     break;
                 default: sendMessage(chatId,
@@ -185,6 +186,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private boolean isCorrectCity(String messageText) {
-        return messageText.matches("^[a-zA-Zа-яА-ЯіїІЇ]+(?:[\\s-][a-zA-Z]+)*$");
+        return messageText.matches("^[a-zA-Zа-яА-ЯіїІЇ]+"
+                + "(?:[\\s-][a-zA-Zа-яА-ЯіїІЇ]+)*$");
     }
 }
