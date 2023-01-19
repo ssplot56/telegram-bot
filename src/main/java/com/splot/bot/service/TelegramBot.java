@@ -22,10 +22,10 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     private static final String HELP_TEXT =
-            "Type /start to receive greetings"
-            + "Type /weather to receive weather in your city"
-            + "Type /forecast to receive 7-day forecast"
-            + "Type /change to change your current city";
+            "Type /start to receive greetings \n"
+            + "Type /weather to receive weather in your city \n"
+            + "Type /forecast to receive 7-day forecast \n"
+            + "Type /change to change your current city \n";
 
     private final UserService userService;
     private final BotConfig config;
@@ -49,6 +49,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 "change current city"));
         listOfCommands.add(new BotCommand("/help",
                 "list of commands"));
+
         try {
             this.execute(new SetMyCommands(listOfCommands,
                     new BotCommandScopeDefault(), null));
