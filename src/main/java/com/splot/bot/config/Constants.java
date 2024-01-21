@@ -6,7 +6,6 @@ public class Constants {
 
     public static final class WeatherApi {
         public static final String WEATHER_API_ENDPOINT = "https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/";
-        public static final String API_KEY = "YOUR_API_KEY";
         public static final String UNIT_GROUP_TYPE = "metric";
         public static final String KEY = "key";
         public static final String UNIT_GROUP = "unitGroup";

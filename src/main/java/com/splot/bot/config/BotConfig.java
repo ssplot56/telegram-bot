@@ -14,7 +14,11 @@ public class BotConfig {
 
     @Value("${bot.name}")
     private String botName;
+
     @Value("${bot.token}")
     private String token;
+
+    @Value("${weather.key}")
+    private String weatherApiKey;
 
 }

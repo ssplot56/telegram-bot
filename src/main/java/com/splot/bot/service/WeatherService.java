@@ -1,13 +1,7 @@
 package com.splot.bot.service;
 
+import com.splot.bot.config.BotConfig;
 import com.splot.bot.model.Weather;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -19,11 +13,19 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import static com.splot.bot.config.Constants.Logger.BAD_RESPONSE;
 import static com.splot.bot.config.Constants.Logger.NO_RAW_DATA;
-import static com.splot.bot.config.Constants.WeatherApi.API_KEY;
 import static com.splot.bot.config.Constants.WeatherApi.CONDITIONS;
 import static com.splot.bot.config.Constants.WeatherApi.DATETIME_EPOCH;
 import static com.splot.bot.config.Constants.WeatherApi.DAYS;
@@ -45,12 +47,15 @@ import static com.splot.bot.config.Constants.WeatherApi.WEATHER_API_ENDPOINT;
 @Log4j2
 public class WeatherService {
 
+    @Autowired
+    private BotConfig botConfig;
+
     public List<Weather> timelineRequestHttpClient(String city) throws Exception {
         URIBuilder builder = new URIBuilder(WEATHER_API_ENDPOINT
                 + URLEncoder.encode(city, StandardCharsets.UTF_8));
 
         builder.setParameter(UNIT_GROUP, UNIT_GROUP_TYPE)
-                .setParameter(KEY, API_KEY);
+                .setParameter(KEY, botConfig.getWeatherApiKey());
 
         HttpGet get = new HttpGet(builder.build());
         CloseableHttpClient httpclient = HttpClients.createDefault();
