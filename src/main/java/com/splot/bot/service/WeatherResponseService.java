@@ -21,7 +21,7 @@ public class WeatherResponseService {
     public String buildForecastMessage(String city) {
         List<Weather> weatherList = weatherService.timelineRequestHttpClient(city);
         StringBuilder forecastString = new StringBuilder("Forecast in <b>"
-                + weatherList.getFirst().getLocationName() + ":</b>\n\n");
+                + weatherList.get(0).getLocationName() + ":</b>\n\n");
 
         for (Weather weather : weatherList) {
             forecastString.append("<b>")
@@ -37,7 +37,7 @@ public class WeatherResponseService {
 
     @SneakyThrows
     public String buildTodayWeatherMessage(String city) {
-        Weather weather = weatherService.timelineRequestHttpClient(city).getFirst();
+        Weather weather = weatherService.timelineRequestHttpClient(city).get(0);
         return "Currently in <b>" +
                 weather.getLocationName() + "</b>:\n\n" +
                 "<b>•Conditions</b>: " + weather.getCondition() + " " +
@@ -53,7 +53,7 @@ public class WeatherResponseService {
     @SneakyThrows
     public String getCorrectCityName(String city) {
         List<Weather> weathers = weatherService.timelineRequestHttpClient(city);
-        return weathers.getFirst().getLocationName();
+        return weathers.get(0).getLocationName();
     }
 
     @SneakyThrows
