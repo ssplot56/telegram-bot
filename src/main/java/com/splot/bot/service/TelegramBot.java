@@ -4,6 +4,7 @@ import com.splot.bot.config.BotConfig;
 import com.splot.bot.model.User;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
@@ -22,31 +23,45 @@ import java.util.List;
 import static com.splot.bot.config.CommonUtils.Strings.isCorrectCityPattern;
 import static com.splot.bot.config.CommonUtils.Strings.normalizeString;
 import static com.splot.bot.config.Constants.BotCommand.CHANGE_CITY_COMMAND;
+import static com.splot.bot.config.Constants.BotCommand.DISABLE_SCHEDULE_COMMAND;
 import static com.splot.bot.config.Constants.BotCommand.FORECAST_COMMAND;
 import static com.splot.bot.config.Constants.BotCommand.HELP_COMMAND;
+import static com.splot.bot.config.Constants.BotCommand.SCHEDULE_COMMAND;
 import static com.splot.bot.config.Constants.BotCommand.START_COMMAND;
 import static com.splot.bot.config.Constants.BotCommand.WEATHER_COMMAND;
 import static com.splot.bot.config.Constants.BotMessages.CITY_WAS_UPDATED_MESSAGE;
 import static com.splot.bot.config.Constants.BotMessages.COMMAND_NOT_RECOGNIZED_MESSAGE;
 import static com.splot.bot.config.Constants.BotMessages.DEFAULT_CITY_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.DISABLE_SCHEDULE_MESSAGE;
 import static com.splot.bot.config.Constants.BotMessages.GREETINGS_MESSAGE;
 import static com.splot.bot.config.Constants.BotMessages.HELP_MESSAGE;
 import static com.splot.bot.config.Constants.BotMessages.INCORRECT_CITY_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.REMINDER_ALREADY_DISABLED_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.REMINDER_ALREADY_SET_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.REMINDER_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.SET_SCHEDULE_MESSAGE;
 import static com.splot.bot.config.Constants.BotMessages.TYPE_CITY_MESSAGE;
 import static com.splot.bot.config.Constants.CommandDescription.CHANGE_CITY_DESCRIPTION;
+import static com.splot.bot.config.Constants.CommandDescription.DISABLE_SCHEDULE_DESCRIPTION;
 import static com.splot.bot.config.Constants.CommandDescription.FORECAST_DESCRIPTION;
 import static com.splot.bot.config.Constants.CommandDescription.HELP_DESCRIPTION;
+import static com.splot.bot.config.Constants.CommandDescription.SCHEDULE_DESCRIPTION;
 import static com.splot.bot.config.Constants.CommandDescription.START_DESCRIPTION;
 import static com.splot.bot.config.Constants.CommandDescription.WEATHER_DESCRIPTION;
 import static com.splot.bot.config.Constants.Logger.BUILD_FORECAST;
 import static com.splot.bot.config.Constants.Logger.BUILD_WEATHER;
+import static com.splot.bot.config.Constants.Logger.DISABLED_REMINDER;
 import static com.splot.bot.config.Constants.Logger.ERROR_OCCURRED;
 import static com.splot.bot.config.Constants.Logger.ERROR_SETTINGS_BOT_COMMANDS;
 import static com.splot.bot.config.Constants.Logger.REPLIED_TO_USER;
+import static com.splot.bot.config.Constants.Logger.SEND_EVERYDAY_REMINDER;
+import static com.splot.bot.config.Constants.Logger.SET_REMINDER;
 import static com.splot.bot.config.Constants.Logger.USER_CHANGE_CITY;
 import static com.splot.bot.config.Constants.Logger.USER_SAVED;
 import static com.splot.bot.config.Constants.TelegramApi.CHANGE_CITY;
 import static com.splot.bot.config.Constants.TelegramApi.CURRENT_WEATHER;
+import static com.splot.bot.config.Constants.TelegramApi.DISABLE_REMINDER;
+import static com.splot.bot.config.Constants.TelegramApi.ENABLE_REMINDER;
 import static com.splot.bot.config.Constants.TelegramApi.HTML;
 import static com.splot.bot.config.Constants.TelegramApi.WEATHER_FORECAST;
 
@@ -99,6 +114,8 @@ public class TelegramBot extends TelegramLongPollingBot {
                 case WEATHER_COMMAND, CURRENT_WEATHER -> showWeather(chatId);
                 case FORECAST_COMMAND, WEATHER_FORECAST -> showForecast(chatId);
                 case CHANGE_CITY_COMMAND, CHANGE_CITY -> changeCity(chatId);
+                case SCHEDULE_COMMAND, ENABLE_REMINDER -> setSchedule(chatId);
+                case DISABLE_SCHEDULE_COMMAND, DISABLE_REMINDER -> disableSchedule(chatId);
                 default -> sendMessage(chatId, COMMAND_NOT_RECOGNIZED_MESSAGE);
             }
         }
@@ -136,6 +153,30 @@ public class TelegramBot extends TelegramLongPollingBot {
         sendMessage(chatId, TYPE_CITY_MESSAGE);
     }
 
+    private void setSchedule(long chatId) {
+        if (userService.isReminderSet(chatId)) {
+            sendMessage(chatId, REMINDER_ALREADY_SET_MESSAGE);
+            return;
+        }
+
+        userService.setReminderForUser(chatId, true);
+        sendMessage(chatId, SET_SCHEDULE_MESSAGE);
+
+        log.info(SET_REMINDER.formatted(chatId));
+    }
+
+    private void disableSchedule(long chatId) {
+        if (!userService.isReminderSet(chatId)) {
+            sendMessage(chatId, REMINDER_ALREADY_DISABLED_MESSAGE);
+            return;
+        }
+
+        userService.setReminderForUser(chatId, false);
+        sendMessage(chatId, DISABLE_SCHEDULE_MESSAGE);
+
+        log.info(DISABLED_REMINDER.formatted(chatId));
+    }
+
     private boolean checkIfNeedUpdateCity(Message message, Long chatId, String messageText) {
         if (!userService.isUserCityExist(chatId) && userService.isUserExist(chatId)) {
             if (isCorrectCityPattern(messageText) && weatherResponseService.isAvailableCity(messageText)) {
@@ -166,6 +207,18 @@ public class TelegramBot extends TelegramLongPollingBot {
         log.info(USER_SAVED.formatted(chatId));
     }
 
+    @Scheduled(cron = "0 0 8 * * ?")
+    private void sendEveryDayReminders() {
+        userService.getUsersIdsWithReminders().forEach(this::sendReminder);
+
+        log.info(SEND_EVERYDAY_REMINDER);
+    }
+
+    private void sendReminder(long chatId) {
+        sendMessage(chatId, REMINDER_MESSAGE);
+        showWeather(chatId);
+    }
+
     private void sendMessage(long chatId, String textToSend) {
         SendMessage message = buildSendMessage(chatId, textToSend);
 
@@ -193,6 +246,8 @@ public class TelegramBot extends TelegramLongPollingBot {
 
         KeyboardRow lowerRow = new KeyboardRow();
         lowerRow.add(CHANGE_CITY);
+        lowerRow.add(ENABLE_REMINDER);
+        lowerRow.add(DISABLE_REMINDER);
 
         return new ReplyKeyboardMarkup(List.of(upperRow, lowerRow));
     }
@@ -205,6 +260,8 @@ public class TelegramBot extends TelegramLongPollingBot {
         listOfCommands.add(new BotCommand(FORECAST_COMMAND, FORECAST_DESCRIPTION));
         listOfCommands.add(new BotCommand(CHANGE_CITY_COMMAND, CHANGE_CITY_DESCRIPTION));
         listOfCommands.add(new BotCommand(HELP_COMMAND, HELP_DESCRIPTION));
+        listOfCommands.add(new BotCommand(SCHEDULE_COMMAND, SCHEDULE_DESCRIPTION));
+        listOfCommands.add(new BotCommand(DISABLE_SCHEDULE_COMMAND, DISABLE_SCHEDULE_DESCRIPTION));
 
         return listOfCommands;
     }

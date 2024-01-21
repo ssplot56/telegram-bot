@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("SELECT u.city " +
@@ -24,5 +26,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "SET u.city = NULL " +
             "WHERE u.id = ?1")
     void removeCityByUserId(Long id);
+
+    @Modifying
+    @Transactional
+    @Query("UPDATE users u " +
+            "SET u.needReminder = ?2 " +
+            "WHERE u.id = ?1")
+    void setReminderByUserId(Long chatId, boolean isNeed);
+
+    @Query("SELECT u.id " +
+            "FROM users u " +
+            "WHERE u.needReminder = TRUE")
+    List<Long> findUserIdsWithReminders();
+
+    @Query("SELECT u.needReminder " +
+            "FROM users u " +
+            "WHERE u.id = ?1")
+    boolean isReminderSet(Long id);
 
 }

@@ -35,4 +35,7 @@ public class User {
     @Column(name = "city")
     private String city;
 
+    @Column(name = "need_reminder")
+    private boolean needReminder;
+
 }

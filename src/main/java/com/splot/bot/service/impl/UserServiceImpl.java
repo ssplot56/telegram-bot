@@ -9,6 +9,7 @@ import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 import static com.splot.bot.config.Constants.Exception.USER_NOT_FOUND;
 import static com.splot.bot.config.Constants.WeatherApi.BASIC_CITY;
@@ -29,7 +30,8 @@ public class UserServiceImpl implements UserService {
                 chat.getLastName(),
                 chat.getUserName(),
                 new Timestamp(System.currentTimeMillis()),
-                BASIC_CITY
+                BASIC_CITY,
+                false
         );
 
         repository.save(user);
@@ -63,6 +65,21 @@ public class UserServiceImpl implements UserService {
     @Override
     public void removeCityByUserId(Long id) {
         repository.removeCityByUserId(id);
+    }
+
+    @Override
+    public void setReminderForUser(Long id, boolean isNeed) {
+        repository.setReminderByUserId(id, isNeed);
+    }
+
+    @Override
+    public List<Long> getUsersIdsWithReminders() {
+        return repository.findUserIdsWithReminders();
+    }
+
+    @Override
+    public boolean isReminderSet(Long id) {
+        return repository.isReminderSet(id);
     }
 
 }
