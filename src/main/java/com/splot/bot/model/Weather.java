@@ -1,10 +1,14 @@
 package com.splot.bot.model;
 
-import java.time.ZonedDateTime;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+import java.time.ZonedDateTime;
+
+@Getter
+@Setter
 public class Weather {
+
     private String locationName;
     private ZonedDateTime date;
     private Double currentTemp;
@@ -14,4 +18,5 @@ public class Weather {
     private String description;
     private String icon;
     private String condition;
+
 }

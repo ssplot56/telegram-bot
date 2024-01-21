@@ -2,11 +2,9 @@ package com.splot.bot.service;
 
 import com.splot.bot.config.BotConfig;
 import com.splot.bot.model.User;
-import com.vdurmont.emoji.EmojiParser;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -18,43 +16,59 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.ReplyKeyboardMar
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import static com.splot.bot.config.CommonUtils.Strings.isCorrectCityPattern;
+import static com.splot.bot.config.CommonUtils.Strings.normalizeString;
+import static com.splot.bot.config.Constants.BotCommand.CHANGE_CITY_COMMAND;
+import static com.splot.bot.config.Constants.BotCommand.FORECAST_COMMAND;
+import static com.splot.bot.config.Constants.BotCommand.HELP_COMMAND;
+import static com.splot.bot.config.Constants.BotCommand.START_COMMAND;
+import static com.splot.bot.config.Constants.BotCommand.WEATHER_COMMAND;
+import static com.splot.bot.config.Constants.BotMessages.CITY_WAS_UPDATED_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.COMMAND_NOT_RECOGNIZED_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.DEFAULT_CITY_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.GREETINGS_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.HELP_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.INCORRECT_CITY_MESSAGE;
+import static com.splot.bot.config.Constants.BotMessages.TYPE_CITY_MESSAGE;
+import static com.splot.bot.config.Constants.CommandDescription.CHANGE_CITY_DESCRIPTION;
+import static com.splot.bot.config.Constants.CommandDescription.FORECAST_DESCRIPTION;
+import static com.splot.bot.config.Constants.CommandDescription.HELP_DESCRIPTION;
+import static com.splot.bot.config.Constants.CommandDescription.START_DESCRIPTION;
+import static com.splot.bot.config.Constants.CommandDescription.WEATHER_DESCRIPTION;
+import static com.splot.bot.config.Constants.Logger.BUILD_FORECAST;
+import static com.splot.bot.config.Constants.Logger.BUILD_WEATHER;
+import static com.splot.bot.config.Constants.Logger.ERROR_OCCURRED;
+import static com.splot.bot.config.Constants.Logger.ERROR_SETTINGS_BOT_COMMANDS;
+import static com.splot.bot.config.Constants.Logger.REPLIED_TO_USER;
+import static com.splot.bot.config.Constants.Logger.USER_CHANGE_CITY;
+import static com.splot.bot.config.Constants.Logger.USER_SAVED;
+import static com.splot.bot.config.Constants.TelegramApi.CHANGE_CITY;
+import static com.splot.bot.config.Constants.TelegramApi.CURRENT_WEATHER;
+import static com.splot.bot.config.Constants.TelegramApi.HTML;
+import static com.splot.bot.config.Constants.TelegramApi.WEATHER_FORECAST;
+
 @Log4j2
-@Component
+@Service
 public class TelegramBot extends TelegramLongPollingBot {
-    private static final String HELP_TEXT =
-            "Type /start to receive greetings \n"
-            + "Type /weather to receive weather in your city \n"
-            + "Type /forecast to receive 7-day forecast \n"
-            + "Type /change to change your current city \n";
 
-    private final UserService userService;
     private final BotConfig config;
-    private final WeatherResponseBuilder weatherResponseBuilder;
-    private final List<Long> usersChangeCity;
 
-    public TelegramBot(UserService userService, BotConfig config,
-                       WeatherResponseBuilder weatherResponseBuilder, List<Long> usersChangeCity) {
-        this.userService = userService;
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private WeatherResponseService weatherResponseService;
+
+    public TelegramBot(BotConfig config) {
         this.config = config;
-        this.weatherResponseBuilder = weatherResponseBuilder;
-        this.usersChangeCity = usersChangeCity;
-        List<BotCommand> listOfCommands = new ArrayList<>();
-        listOfCommands.add(new BotCommand("/start",
-                "welcome message"));
-        listOfCommands.add(new BotCommand("/weather",
-                "receive weather"));
-        listOfCommands.add(new BotCommand("/forecast",
-                "receive 7-day forecast"));
-        listOfCommands.add(new BotCommand("/change",
-                "change current city"));
-        listOfCommands.add(new BotCommand("/help",
-                "list of commands"));
 
         try {
-            this.execute(new SetMyCommands(listOfCommands,
-                    new BotCommandScopeDefault(), null));
+            this.execute(new SetMyCommands(getListOfCommands(), new BotCommandScopeDefault(), null));
         } catch (TelegramApiException e) {
-            log.error("Error setting bot's command list: " + e.getMessage());
+            log.error(ERROR_SETTINGS_BOT_COMMANDS.formatted(e.getMessage()));
         }
     }
 
@@ -72,122 +86,127 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             Message message = update.getMessage();
-            String messageText = message.getText();
+            String messageText = normalizeString(message.getText());
             long chatId = message.getChatId();
 
-            if (usersChangeCity.contains(chatId)) {
-                if (isCorrectCity(messageText)
-                        && weatherResponseBuilder.isAvailableCity(messageText)) {
-                    changeUserCity(message);
-                    usersChangeCity.remove(chatId);
-                } else {
-                    sendMessage(chatId, "Incorrect city format "
-                            + "or non-existent city, "
-                            + "do not use digits and symbols! Try again");
-                }
+            if (checkIfNeedUpdateCity(message, chatId, messageText)) {
                 return;
             }
 
             switch (messageText) {
-                case "/start":
-                    startCommandReceived(message);
-                    if (userService.checkIfUserExist(chatId)) {
-                        registerUser(message);
-                    }
-                    break;
-                case "/help":
-                    sendMessage(chatId, HELP_TEXT);
-                    break;
-                case "Current weather":
-                case "/weather":
-                    showWeather(chatId);
-                    break;
-                case "Weather forecast":
-                case "/forecast":
-                    showForecast(chatId);
-                    break;
-                case "Change city":
-                case "/change":
-                    usersChangeCity.add(chatId);
-                    sendMessage(message.getChatId(), "Type your city:\n");
-                    break;
-                default: sendMessage(chatId,
-                        "Sorry, command was not recognized");
+                case START_COMMAND -> startCommandReceived(message);
+                case HELP_COMMAND -> sendMessage(chatId, HELP_MESSAGE);
+                case WEATHER_COMMAND, CURRENT_WEATHER -> showWeather(chatId);
+                case FORECAST_COMMAND, WEATHER_FORECAST -> showForecast(chatId);
+                case CHANGE_CITY_COMMAND, CHANGE_CITY -> changeCity(chatId);
+                default -> sendMessage(chatId, COMMAND_NOT_RECOGNIZED_MESSAGE);
             }
         }
     }
 
-    private void changeUserCity(Message message) {
-        User user = userService.getUserById(message.getChatId());
-        String messageText = message.getText();
-        user.setCity(messageText.toUpperCase());
-        user = userService.updateUser(user);
-        log.info("User - " + user.getId() + " was changed city to - " + user.getCity());
-        sendMessage(user.getId(), "Data was updated, current city - "
-                + user.getCity());
+    private void startCommandReceived(Message message) {
+        long chatId = message.getChatId();
+        sendMessage(chatId, GREETINGS_MESSAGE.formatted(message.getChat().getFirstName()));
+
+        if (!userService.isUserExist(chatId)) {
+            registerUser(message);
+        }
+
+        log.info(REPLIED_TO_USER.formatted(chatId));
     }
 
     private void showWeather(long chatId) {
-        String city = userService.getUserById(chatId).getCity();
-        String todayWeatherString = weatherResponseBuilder.buildTodayWeatherMessage(city);
+        String city = userService.getCityByUserId(chatId);
+        String todayWeatherString = weatherResponseService.buildTodayWeatherMessage(city);
         sendMessage(chatId, todayWeatherString);
+
+        log.info(BUILD_WEATHER.formatted(chatId));
     }
 
     private void showForecast(long chatId) {
-        String city = userService.getUserById(chatId).getCity();
-        String forecastString = weatherResponseBuilder.buildForecastMessage(city);
+        String city = userService.getCityByUserId(chatId);
+        String forecastString = weatherResponseService.buildForecastMessage(city);
         sendMessage(chatId, forecastString);
+
+        log.info(BUILD_FORECAST.formatted(chatId));
     }
 
-    private void startCommandReceived(Message message) {
-        String name = message.getChat().getFirstName();
-        long chatId = message.getChatId();
+    private void changeCity(long chatId) {
+        userService.removeCityByUserId(chatId);
+        sendMessage(chatId, TYPE_CITY_MESSAGE);
+    }
 
-        String answer = EmojiParser.parseToUnicode("Hi, " + name
-                + ", nice to meet you!" + " :wave:");
-        log.info("Replied to user " + name);
-        sendMessage(chatId, answer);
+    private boolean checkIfNeedUpdateCity(Message message, Long chatId, String messageText) {
+        if (!userService.isUserCityExist(chatId) && userService.isUserExist(chatId)) {
+            if (isCorrectCityPattern(messageText) && weatherResponseService.isAvailableCity(messageText)) {
+                updateUserCity(message);
+            } else {
+                sendMessage(chatId, INCORRECT_CITY_MESSAGE);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    private void updateUserCity(Message message) {
+        User user = userService.getById(message.getChatId());
+        user.setCity(weatherResponseService.getCorrectCityName(message.getText()));
+        user = userService.updateUser(user);
+        sendMessage(user.getId(), CITY_WAS_UPDATED_MESSAGE.formatted(user.getCity()));
+
+        log.info(USER_CHANGE_CITY.formatted(user.getId(), user.getCity()));
     }
 
     private void registerUser(Message message) {
         Long chatId = message.getChatId();
-        User user = userService.saveUser(message);
-        sendMessage(chatId, "You city by default - Kyiv, "
-                + "to change city type /change");
-        log.info("User saved " + user);
+        userService.saveUser(message);
+        sendMessage(chatId, DEFAULT_CITY_MESSAGE);
+
+        log.info(USER_SAVED.formatted(chatId));
     }
 
     private void sendMessage(long chatId, String textToSend) {
-        SendMessage message = new SendMessage();
-        message.setChatId(String.valueOf(chatId));
-        message.setText(textToSend);
-        message.setParseMode("HTML");
-        buildKeyboard();
-        message.setReplyMarkup(buildKeyboard());
+        SendMessage message = buildSendMessage(chatId, textToSend);
+
         try {
             execute(message);
         } catch (TelegramApiException e) {
-            log.error("Error occurred: " + e.getMessage());
+            log.error(ERROR_OCCURRED.formatted(e.getMessage()));
         }
     }
 
+    private SendMessage buildSendMessage(long chatId, String textToSend) {
+        SendMessage message = new SendMessage();
+        message.setChatId(String.valueOf(chatId));
+        message.setText(textToSend);
+        message.setParseMode(HTML);
+        message.setReplyMarkup(buildKeyboard());
+
+        return message;
+    }
+
     private ReplyKeyboardMarkup buildKeyboard() {
-        KeyboardRow row = new KeyboardRow();
-        row.add("Current weather");
-        row.add("Weather forecast");
-        List<KeyboardRow> keyboardRows = new ArrayList<>();
-        keyboardRows.add(row);
+        KeyboardRow upperRow = new KeyboardRow();
+        upperRow.add(CURRENT_WEATHER);
+        upperRow.add(WEATHER_FORECAST);
 
-        row = new KeyboardRow();
-        row.add("Change city");
-        keyboardRows.add(row);
-        ReplyKeyboardMarkup keyboardMarkup = new ReplyKeyboardMarkup();
-        keyboardMarkup.setKeyboard(keyboardRows);
-        return keyboardMarkup;
+        KeyboardRow lowerRow = new KeyboardRow();
+        lowerRow.add(CHANGE_CITY);
+
+        return new ReplyKeyboardMarkup(List.of(upperRow, lowerRow));
     }
 
-    private boolean isCorrectCity(String messageText) {
-        return messageText.matches("^[a-zA-Zа-яА-ЯіїІЇ]+"
-                + "(?:[\\s-][a-zA-Zа-яА-ЯіїІЇ]+)*$");
+    private List<BotCommand> getListOfCommands() {
+        List<BotCommand> listOfCommands = new ArrayList<>();
+
+        listOfCommands.add(new BotCommand(START_COMMAND, START_DESCRIPTION));
+        listOfCommands.add(new BotCommand(WEATHER_COMMAND, WEATHER_DESCRIPTION));
+        listOfCommands.add(new BotCommand(FORECAST_COMMAND, FORECAST_DESCRIPTION));
+        listOfCommands.add(new BotCommand(CHANGE_CITY_COMMAND, CHANGE_CITY_DESCRIPTION));
+        listOfCommands.add(new BotCommand(HELP_COMMAND, HELP_DESCRIPTION));
+
+        return listOfCommands;
     }
+
 }

@@ -3,32 +3,36 @@ package com.splot.bot.service.impl;
 import com.splot.bot.model.User;
 import com.splot.bot.repository.UserRepository;
 import com.splot.bot.service.UserService;
-import java.sql.Timestamp;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.telegram.telegrambots.meta.api.objects.Chat;
 import org.telegram.telegrambots.meta.api.objects.Message;
 
+import java.sql.Timestamp;
+
+import static com.splot.bot.config.Constants.Exception.USER_NOT_FOUND;
+import static com.splot.bot.config.Constants.WeatherApi.BASIC_CITY;
+
 @Service
 public class UserServiceImpl implements UserService {
-    private final UserRepository repository;
 
-    public UserServiceImpl(UserRepository repository) {
-        this.repository = repository;
-    }
+    @Autowired
+    private UserRepository repository;
 
     @Override
-    public User saveUser(Message message) {
-        long chatId = message.getChatId();
+    public void saveUser(Message message) {
         Chat chat = message.getChat();
 
-        User user = new User();
-        user.setId(chatId);
-        user.setFirstName(chat.getFirstName());
-        user.setLastName(chat.getLastName());
-        user.setUserName(chat.getUserName());
-        user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
-        user.setCity("KYIV");
-        return repository.save(user);
+        User user = new User(
+                message.getChatId(),
+                chat.getFirstName(),
+                chat.getLastName(),
+                chat.getUserName(),
+                new Timestamp(System.currentTimeMillis()),
+                BASIC_CITY
+        );
+
+        repository.save(user);
     }
 
     @Override
@@ -37,12 +41,28 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public Boolean checkIfUserExist(Long id) {
-        return repository.findById(id).isEmpty();
+    public Boolean isUserExist(Long id) {
+        return repository.findById(id).isPresent();
     }
 
     @Override
-    public User getUserById(Long id) {
-        return repository.findById(id).orElseThrow();
+    public User getById(Long id) {
+        return repository.findById(id).orElseThrow(() -> new RuntimeException(USER_NOT_FOUND));
     }
+
+    @Override
+    public boolean isUserCityExist(Long id) {
+        return repository.isUserCityExist(id);
+    }
+
+    @Override
+    public String getCityByUserId(Long id) {
+        return repository.findCityByUserId(id);
+    }
+
+    @Override
+    public void removeCityByUserId(Long id) {
+        repository.removeCityByUserId(id);
+    }
+
 }

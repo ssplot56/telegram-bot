@@ -2,6 +2,7 @@ package com.splot.bot.config;
 
 import com.splot.bot.service.TelegramBot;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
@@ -12,11 +13,9 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 @Log4j2
 @Component
 public class BotInitializer {
-    private final TelegramBot bot;
 
-    public BotInitializer(TelegramBot bot) {
-        this.bot = bot;
-    }
+    @Autowired
+    private TelegramBot bot;
 
     @EventListener({ContextRefreshedEvent.class})
     public void init() throws TelegramApiException {
@@ -28,4 +27,5 @@ public class BotInitializer {
             log.error("Error occurred: " + e.getMessage());
         }
     }
+
 }

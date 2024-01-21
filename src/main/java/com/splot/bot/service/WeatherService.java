@@ -21,76 +21,100 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 
+import static com.splot.bot.config.Constants.Logger.BAD_RESPONSE;
+import static com.splot.bot.config.Constants.Logger.NO_RAW_DATA;
+import static com.splot.bot.config.Constants.WeatherApi.API_KEY;
+import static com.splot.bot.config.Constants.WeatherApi.CONDITIONS;
+import static com.splot.bot.config.Constants.WeatherApi.DATETIME_EPOCH;
+import static com.splot.bot.config.Constants.WeatherApi.DAYS;
+import static com.splot.bot.config.Constants.WeatherApi.DESCRIPTION;
+import static com.splot.bot.config.Constants.WeatherApi.FEELS_LIKE;
+import static com.splot.bot.config.Constants.WeatherApi.ICON;
+import static com.splot.bot.config.Constants.WeatherApi.KEY;
+import static com.splot.bot.config.Constants.WeatherApi.NUMBER_OF_DAYS;
+import static com.splot.bot.config.Constants.WeatherApi.RESOLVED_ADDRESS;
+import static com.splot.bot.config.Constants.WeatherApi.TEMP;
+import static com.splot.bot.config.Constants.WeatherApi.TEMP_MAX;
+import static com.splot.bot.config.Constants.WeatherApi.TEMP_MIN;
+import static com.splot.bot.config.Constants.WeatherApi.TIMEZONE;
+import static com.splot.bot.config.Constants.WeatherApi.UNIT_GROUP;
+import static com.splot.bot.config.Constants.WeatherApi.UNIT_GROUP_TYPE;
+import static com.splot.bot.config.Constants.WeatherApi.WEATHER_API_ENDPOINT;
+
 @Service
 @Log4j2
 public class WeatherService {
-    private static final String apiEndPoint = "https://weather.visualcrossing.com"
-            + "/VisualCrossingWebServices/rest/services/timeline/";
-    private static final String unitGroup = "metric";
-    private static final String apiKey = "NCDHRXZGEX6NMRMBBKTWVN3KE";
-
-    public WeatherService() {
-    }
 
     public List<Weather> timelineRequestHttpClient(String city) throws Exception {
-
-        URIBuilder builder = new URIBuilder(apiEndPoint
+        URIBuilder builder = new URIBuilder(WEATHER_API_ENDPOINT
                 + URLEncoder.encode(city, StandardCharsets.UTF_8));
 
-        builder.setParameter("unitGroup", unitGroup)
-                .setParameter("key", apiKey);
+        builder.setParameter(UNIT_GROUP, UNIT_GROUP_TYPE)
+                .setParameter(KEY, API_KEY);
 
         HttpGet get = new HttpGet(builder.build());
         CloseableHttpClient httpclient = HttpClients.createDefault();
         CloseableHttpResponse response = httpclient.execute(get);
 
         String rawResult = null;
+
         try {
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                log.error("bad response status code " + response.getStatusLine());
+                log.error(BAD_RESPONSE.formatted(response.getStatusLine().toString()));
                 return null;
             }
+
             HttpEntity entity = response.getEntity();
+
             if (entity != null) {
                 rawResult = EntityUtils.toString(entity, StandardCharsets.UTF_8);
             }
         } finally {
             response.close();
         }
-        return parseTimelineJson(rawResult);
 
+        return parseTimelineJson(rawResult);
     }
 
     private List<Weather> parseTimelineJson(String rawResult) {
-
         if (rawResult == null || rawResult.isEmpty()) {
-            log.error("No raw data");
+            log.error(NO_RAW_DATA);
             return null;
         }
 
         JSONObject timelineResponse = new JSONObject(rawResult);
-        ZoneId zoneId = ZoneId.of(timelineResponse.getString("timezone"));
-        String location = timelineResponse.getString("resolvedAddress");
-        JSONArray values = timelineResponse.getJSONArray("days");
+        ZoneId zoneId = ZoneId.of(timelineResponse.getString(TIMEZONE));
+        String location = timelineResponse.getString(RESOLVED_ADDRESS);
+        JSONArray values = timelineResponse.getJSONArray(DAYS);
 
         List<Weather> weatherList = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < NUMBER_OF_DAYS; i++) {
             JSONObject dayValue = values.getJSONObject(i);
-
-            ZonedDateTime datetime = ZonedDateTime.ofInstant(
-                    Instant.ofEpochSecond(dayValue.getLong("datetimeEpoch")), zoneId);
-            Weather weather = new Weather();
-            weather.setDate(datetime);
-            weather.setLocationName(location);
-            weather.setDescription(dayValue.getString("description"));
-            weather.setCurrentTemp(dayValue.getDouble("temp"));
-            weather.setFeelsLikeTemp(dayValue.getDouble("feelslike"));
-            weather.setMaxTemp(dayValue.getDouble("tempmax"));
-            weather.setMinTemp(dayValue.getDouble("tempmin"));
-            weather.setIcon(dayValue.getString("icon"));
-            weather.setCondition(dayValue.getString("conditions"));
-            weatherList.add(weather);
+            Weather weatherForDay = createWeatherForDay(dayValue, location, zoneId);
+            weatherList.add(weatherForDay);
         }
+
         return weatherList;
     }
+
+    private Weather createWeatherForDay(JSONObject dayValue, String location, ZoneId zoneId) {
+        Weather weather = new Weather();
+
+        ZonedDateTime datetime = ZonedDateTime.ofInstant(
+                Instant.ofEpochSecond(dayValue.getLong(DATETIME_EPOCH)), zoneId
+        );
+
+        weather.setDate(datetime);
+        weather.setLocationName(location);
+        weather.setDescription(dayValue.getString(DESCRIPTION));
+        weather.setCurrentTemp(dayValue.getDouble(TEMP));
+        weather.setFeelsLikeTemp(dayValue.getDouble(FEELS_LIKE));
+        weather.setMaxTemp(dayValue.getDouble(TEMP_MAX));
+        weather.setMinTemp(dayValue.getDouble(TEMP_MIN));
+        weather.setIcon(dayValue.getString(ICON));
+        weather.setCondition(dayValue.getString(CONDITIONS));
+
+        return weather;
+    }
+
 }
